@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07100b">
+<title>DEBT TRACKER OS</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{--bg:#050a07;--panel:#0a130d;--panel2:#0d1a11;--line:#1c3b27;--green:#72f39a;--muted:#91aa99;--red:#ff7272;--amber:#ffd36b;--white:#e8f5ec}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--white);font:14px Consolas,"Courier New",monospace}
+header{padding:22px max(16px,calc((100% - 1120px)/2));border-bottom:1px solid var(--line);background:#07100b}
+.brand{color:var(--green);font-size:12px;letter-spacing:2px}.headrow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:8px 0 4px;color:var(--green)}.sub{color:var(--muted);font-size:12px}
+main{max-width:1120px;margin:auto;padding:18px 16px 48px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}
+.panel,.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:15px}
+.stat small,.label{color:var(--muted);font-size:11px;letter-spacing:.8px}.stat strong{display:block;font-size:clamp(19px,3vw,27px);color:var(--green);margin-top:9px;overflow-wrap:anywhere}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tab,button{font:inherit;border:1px solid var(--line);background:#0b1710;color:var(--green);padding:10px 13px;border-radius:6px;cursor:pointer}
+.tab.active,button.primary{background:#12351f;border-color:#2b7543}.tab:hover,button:hover{border-color:var(--green)}
+button.danger{color:var(--red);border-color:#693232}button.mini{padding:6px 8px;font-size:11px}
+.section{display:none}.section.active{display:block}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:12px}
+input,select{background:#050d08;border:1px solid var(--line);color:var(--white);padding:10px;border-radius:5px;font:inherit;min-width:0}
+input:focus,select:focus{outline:1px solid var(--green)}.search{width:min(100%,300px)}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:11px 9px;border-bottom:1px solid #173021}th{color:var(--muted);font-weight:normal;letter-spacing:.5px}td.amount{text-align:right;white-space:nowrap;color:var(--green)}
+.status{font-size:10px;padding:4px 7px;border:1px solid var(--line);border-radius:20px;color:var(--amber)}.status.paid{color:var(--green);border-color:#2b7543}
+.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.note{color:var(--muted);font-size:11px;line-height:1.6}.warning{border-left:3px solid var(--amber);padding:10px 12px;background:#191609;color:#f3dfaa;font-size:12px;line-height:1.5;margin:12px 0}
+.good{color:var(--green)}.bad{color:var(--red)}.empty{padding:25px;text-align:center;color:var(--muted)}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#163a22;border:1px solid var(--green);color:white;padding:10px 16px;border-radius:6px;display:none;z-index:10;max-width:90vw}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,1fr)}table{font-size:11px}th,td{padding:9px 5px}.hide-mobile{display:none}.formgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="headrow"><div><div class="brand">ANIRUDDHA // PERSONAL FINANCE TOOL</div><h1>DEBT TRACKER OS</h1><div class="sub">VERSION 1.0 // LINUX TERMINAL EDITION</div></div><div class="sub" id="today"></div></div></header>
+<main>
+<div class="grid">
+ <div class="stat"><small>TOTAL OUTSTANDING</small><strong id="total">₹0</strong></div>
+ <div class="stat"><small>ACTIVE LOANS</small><strong id="active">0</strong></div>
+ <div class="stat"><small>LOANS CLOSED</small><strong id="closed">0</strong></div>
+ <div class="stat"><small>RECORDED PAYMENTS</small><strong id="repaid">₹0</strong></div>
+</div>
+<div class="warning">STARTING DATA IS BASED ON AMOUNTS SHARED IN CHAT. Verify each lender's current foreclosure/outstanding figure. A payment may include interest, fees or charges, so adjust the balance to the lender-confirmed amount when needed.</div>
+<div class="tabs">
+ <button class="tab active" data-tab="loans">LOAN REGISTER</button><button class="tab" data-tab="payment">ADD PAYMENT</button><button class="tab" data-tab="history">PAYMENT HISTORY</button><button class="tab" data-tab="reminders">DUE REMINDERS</button><button class="tab" data-tab="backup">BACKUP / EXPORT</button>
+</div>
+
+<section class="section active" id="loans">
+ <div class="toolbar"><div><b class="good">[ LOAN REGISTER ]</b><div class="note" id="registerCount"></div></div><input class="search" id="search" placeholder="Search lender..."></div>
+ <div style="overflow-x:auto"><table><thead><tr><th>LENDER / APP</th><th>OUTSTANDING</th><th>STATUS</th><th class="hide-mobile">DUE DATE</th><th>ACTION</th></tr></thead><tbody id="loanRows"></tbody></table></div>
+ <div class="actions"><button class="primary" id="showAddLoan">+ ADD LOAN</button><button id="exportCsv">EXPORT LOAN CSV</button></div>
+ <div id="addLoanBox" class="panel" style="display:none;margin-top:14px"><b class="good">ADD NEW LOAN</b><div class="formgrid" style="margin-top:12px"><label class="field">Lender / app name<input id="newName" placeholder="Lender name"></label><label class="field">Current outstanding (₹)<input id="newBalance" type="number" min="0" placeholder="0"></label><label class="field">Due date (optional)<input id="newDue" type="date"></label><label class="field">Notes (optional)<input id="newNotes" placeholder="Account / repayment notes"></label></div><div class="actions"><button class="primary" id="addLoan">SAVE LOAN</button><button id="cancelAdd">CANCEL</button></div></div>
+</section>
+
+<section class="section" id="payment">
+ <div class="panel"><b class="good">[ RECORD A REPAYMENT ]</b><p class="note">Record what you paid. Then enter the lender-confirmed remaining balance if it differs from a simple subtraction.</p>
+ <div class="formgrid">
+  <label class="field full">Loan app<select id="payLoan"></select></label>
+  <label class="field">Amount paid (₹)<input id="payAmount" type="number" min="0.01" step="0.01" placeholder="e.g. 5000"></label>
+  <label class="field">Payment date<input id="payDate" type="date"></label>
+  <label class="field">Updated outstanding after payment (₹)<input id="newOutstanding" type="number" min="0" step="0.01" placeholder="Optional — lender-confirmed"></label>
+  <label class="field">Payment type<select id="payType"><option>Part payment</option><option>Full and final settlement</option><option>Regular EMI</option><option>Other</option></select></label>
+  <label class="field full">Reference / notes<input id="payNote" placeholder="Transaction ID or notes (optional)"></label>
+ </div>
+ <div class="actions"><button class="primary" id="savePayment">SAVE PAYMENT</button></div>
+ <p class="note">If you leave “updated outstanding” blank, the app subtracts the payment amount from the current balance. Use the field when interest, fees or lender allocation makes the actual balance different.</p>
+ </div>
+</section>
+
+<section class="section" id="history"><div class="toolbar"><b class="good">[ TRANSACTION LOG ]</b><button id="historyCsv">EXPORT HISTORY CSV</button></div><div style="overflow-x:auto"><table><thead><tr><th>DATE</th><th>LENDER</th><th>TYPE</th><th>AMOUNT PAID</th><th>NOTES</th></tr></thead><tbody id="historyRows"></tbody></table></div></section>
+
+<section class="section" id="reminders">
+ <div class="panel"><b class="good">[ DUE DATE REMINDERS ]</b><p class="note">Add or update due dates from the loan register. The app checks upcoming dates when opened and can show browser notifications while the app is open and permission is granted.</p><div class="actions"><button class="primary" id="enableNotify">ENABLE BROWSER NOTIFICATIONS</button></div><div id="dueRows" style="margin-top:12px"></div></div>
+ <div class="warning">A static web app cannot reliably send scheduled push notifications while fully closed. For dependable background reminders and automatic cloud sync, this app needs a connected cloud/backend service. Until then, use the backup export regularly and keep a phone calendar reminder for critical due dates.</div>
+</section>
+
+<section class="section" id="backup">
+ <div class="panel"><b class="good">[ DATA BACKUP & RESTORE ]</b><p class="note">Your data is saved in this browser on this device. Export a JSON backup and keep it somewhere safe. Import that backup on another device to restore your register and history.</p><div class="actions"><button class="primary" id="backupJson">DOWNLOAD JSON BACKUP</button><button id="importBtn">IMPORT JSON BACKUP</button><input id="importFile" type="file" accept="application/json" style="display:none"></div><p class="note" id="backupInfo"></p></div>
+ <div class="warning">“Phone + cloud backup” is not connected in this version: no cloud account or server credentials were supplied. JSON backup/restore is included as a safe manual transfer method. Do not store bank passwords, OTPs, or sensitive credentials in this tracker.</div>
+</section>
+<footer class="note" style="margin-top:20px">LOCAL DATA // AUTO-SAVES IN THIS BROWSER // KEEP REGULAR BACKUPS</footer>
+</main><div id="toast"></div>
+<script>
+const initialLoans = [
+["Anytime Rupee",30250],["Bharat Loan",66500],["Bright Loans",52000],["Fibe",63000],["FlexiBee",5800],["Flot",28750],["InstaMoney",50000],["KreditBee",63600],["Loan112",42525],["Loan10Minute",0],["PayMe",30720],["PayRupik",76100],["Pocketly",10000],["PocketMitra",15200],["Poonawala (1)",161920],["Poonawala (2)",65711],["RupeeRedee",60374],["Ring",17105],["Stashfin",10500],["True Balance",117039],["TrustPaisa",23000],["ZYPE",45835]
+].map((x,i)=>({id:"l"+(i+1),name:x[0],balance:x[1],status:x[1]===0?"PAID":"ACTIVE",due:"",notes:""}));
+const initialHistory = [
+{date:"2026-10-29",loan:"Loan10Minute",amount:32500,type:"Full and final settlement",notes:"Reported as fully repaid; closure confirmation/NDC to be retained."},
+{date:"2026-10-29",loan:"PayRupik",amount:39800,type:"Part payment",notes:"Remaining balance recorded as ₹76,100; verify with lender."}
+];
+let state;
+try{state=JSON.parse(localStorage.getItem("debtTrackerOS_v1"))||{loans:initialLoans,history:initialHistory}}catch(e){state={loans:initialLoans,history:initialHistory}}
+const money=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
+const today=()=>new Date().toISOString().slice(0,10);
+document.getElementById("today").textContent=new Date().toLocaleDateString("en-IN",{weekday:"short",day:"2-digit",month:"short",year:"numeric"});
+document.getElementById("payDate").value=today();
+function save(){localStorage.setItem("debtTrackerOS_v1",JSON.stringify(state));render()}
+function toast(s){let t=document.getElementById("toast");t.textContent=s;t.style.display="block";setTimeout(()=>t.style.display="none",2400)}
+function total(){return state.loans.reduce((a,l)=>a+(Number(l.balance)||0),0)}
+function render(){
+ document.getElementById("total").textContent=money(total());
+ document.getElementById("active").textContent=state.loans.filter(l=>l.balance>0).length;
+ document.getElementById("closed").textContent=state.loans.filter(l=>l.balance<=0).length;
+ document.getElementById("repaid").textContent=money(state.history.reduce((a,h)=>a+Number(h.amount||0),0));
+ document.getElementById("registerCount").textContent=state.loans.length+" lenders // sorted alphabetically";
+ let q=(document.getElementById("search").value||"").toLowerCase();
+ document.getElementById("loanRows").innerHTML=state.loans.filter(l=>l.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name)).map(l=>`<tr><td>${esc(l.name)}</td><td class="amount">${money(l.balance)}</td><td><span class="status ${l.balance<=0?"paid":""}">${l.balance<=0?"PAID":"ACTIVE"}</span></td><td class="hide-mobile">${l.due||"—"}</td><td><button class="mini" onclick="editLoan('${l.id}')">EDIT</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">No matching lenders.</td></tr>';
+ document.getElementById("payLoan").innerHTML=state.loans.filter(l=>l.balance>0).sort((a,b)=>a.name.localeCompare(b.name)).map(l=>`<option value="${l.id}">${esc(l.name)} — ${money(l.balance)}</option>`).join("");
+ document.getElementById("historyRows").innerHTML=[...state.history].reverse().map(h=>`<tr><td>${h.date}</td><td>${esc(h.loan)}</td><td>${esc(h.type)}</td><td class="amount">${money(h.amount)}</td><td>${esc(h.notes||"—")}</td></tr>`).join("")||'<tr><td colspan="5" class="empty">No payments recorded.</td></tr>';
+ let upcoming=state.loans.filter(l=>l.due&&l.balance>0).sort((a,b)=>a.due.localeCompare(b.due));
+ document.getElementById("dueRows").innerHTML=upcoming.map(l=>`<div style="padding:10px 0;border-bottom:1px solid var(--line)"><b>${esc(l.name)}</b> · ${l.due} · ${money(l.balance)}</div>`).join("")||'<div class="empty">No due dates entered yet. Add them using EDIT in the loan register.</div>';
+ document.getElementById("backupInfo").textContent="Last saved locally: "+new Date().toLocaleString("en-IN")+" · "+state.loans.length+" loans · "+state.history.length+" payments";
+}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+window.editLoan=id=>{let l=state.loans.find(x=>x.id===id);if(!l)return;let b=prompt("Enter lender-confirmed current outstanding for "+l.name, l.balance);if(b===null)return;if(b.trim()===""||!Number.isFinite(Number(b))||Number(b)<0){toast("Enter a valid non-negative balance.");return}l.balance=Number(b);l.status=l.balance===0?"PAID":"ACTIVE";let d=prompt("Due date YYYY-MM-DD (leave blank to clear)",l.due||"");if(d!==null)l.due=d.trim();save();toast("Loan record updated.")};
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".section").forEach(x=>x.classList.toggle("active",x.id===b.dataset.tab))}));
+document.getElementById("search").addEventListener("input",render);
+document.getElementById("showAddLoan").onclick=()=>document.getElementById("addLoanBox").style.display="block";
+document.getElementById("cancelAdd").onclick=()=>document.getElementById("addLoanBox").style.display="none";
+document.getElementById("addLoan").onclick=()=>{let name=document.getElementById("newName").value.trim(),balance=Number(document.getElementById("newBalance").value);if(!name||!Number.isFinite(balance)||balance<0){toast("Enter a lender name and valid balance.");return}state.loans.push({id:"l"+Date.now(),name,balance,status:balance===0?"PAID":"ACTIVE",due:document.getElementById("newDue").value,notes:document.getElementById("newNotes").value});save();document.getElementById("addLoanBox").style.display="none";["newName","newBalance","newDue","newNotes"].forEach(id=>document.getElementById(id).value="");toast("Loan added.")};
+document.getElementById("savePayment").onclick=()=>{let l=state.loans.find(x=>x.id===document.getElementById("payLoan").value),amt=Number(document.getElementById("payAmount").value);if(!l||!Number.isFinite(amt)||amt<=0){toast("Select a loan and enter a valid payment.");return}let after=document.getElementById("newOutstanding").value;let type=document.getElementById("payType").value;state.history.push({date:document.getElementById("payDate").value||today(),loan:l.name,amount:amt,type,notes:document.getElementById("payNote").value});l.balance=after!==""?Math.max(0,Number(after)):Math.max(0,Number(l.balance)-amt);l.status=l.balance===0?"PAID":"ACTIVE";save();document.getElementById("payAmount").value="";document.getElementById("newOutstanding").value="";document.getElementById("payNote").value="";toast("Payment saved and balance updated.")};
+function download(name,content,type){let a=document.createElement("a"),u=URL.createObjectURL(new Blob([content],{type}));a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
+document.getElementById("backupJson").onclick=()=>download("debt-tracker-backup-"+today()+".json",JSON.stringify(state,null,2),"application/json");
+document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
+document.getElementById("importFile").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let x=JSON.parse(await f.text());if(!Array.isArray(x.loans)||!Array.isArray(x.history))throw Error();if(!confirm("Replace current data with this backup?"))return;state=x;save();toast("Backup restored.")}catch(err){toast("Invalid backup file.")}e.target.value=""};
+function csv(rows){return rows.map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\n")}
+document.getElementById("exportCsv").onclick=()=>download("debt-loan-register.csv",csv([["Lender","Outstanding","Status","Due date","Notes"],...state.loans.map(l=>[l.name,l.balance,l.balance<=0?"PAID":"ACTIVE",l.due,l.notes])]),"text/csv");
+document.getElementById("historyCsv").onclick=()=>download("debt-payment-history.csv",csv([["Date","Lender","Amount paid","Type","Notes"],...state.history.map(h=>[h.date,h.loan,h.amount,h.type,h.notes])]),"text/csv");
+document.getElementById("enableNotify").onclick=async()=>{if(!("Notification"in window)){toast("Browser notifications are not supported here.");return}let p=await Notification.requestPermission();toast(p==="granted"?"Notifications enabled.":"Notification permission not granted.");checkDue()};
+function checkDue(){if(!("Notification"in window)||Notification.permission!=="granted")return;let now=new Date();state.loans.filter(l=>l.due&&l.balance>0).forEach(l=>{let d=new Date(l.due+"T00:00:00"),days=Math.ceil((d-now)/(86400000));if(days>=0&&days<=2){let key="notified_"+l.id+"_"+l.due;if(!sessionStorage.getItem(key)){new Notification("Debt Tracker OS: due date",{body:l.name+" · "+money(l.balance)+" · due "+l.due});sessionStorage.setItem(key,"1")}}})}
+render();checkDue();
+if("serviceWorker"in navigator && location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
+</script>
+</body></html>

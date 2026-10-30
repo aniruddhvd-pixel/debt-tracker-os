@@ -1,0 +1,9 @@
+{
+  "name": "Debt Tracker OS",
+  "short_name": "Debt OS",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#050a07",
+  "theme_color": "#07100b",
+  "icons": []
+}
